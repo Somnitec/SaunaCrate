@@ -28,6 +28,7 @@ int buttonState = 0;
 bool heatingOn = false;
 bool firstTimeHot = false;
 
+
 #define desiredTemperature 85
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
@@ -75,7 +76,6 @@ void setup() {
 }
 
 void loop() {
-
   SchedBase::dispatcher();
 }
 
@@ -95,6 +95,7 @@ void heatingLoop() {
     digitalWrite(heaterRelayPin, LOW);
     Serial.println("time's up, stopping now");
     heatingOn = false;
+    firstTimeHot = false;
     //while (true);//make this respond to a button press to restart again
   }
 
@@ -103,31 +104,34 @@ void heatingLoop() {
       digitalWrite(heaterRelayPin, LOW);
       Serial.println("overheated, stopping now");
       heatingOn = false;
-      while (true);
+      setLeds(CRGB::Black);
     }
-
-
-
-    if (!heatingOn) {
-      if (temperature < desiredTemperature - hysteresis) {
-        digitalWrite(heaterRelayPin, HIGH);
-        Serial.print("turning on heat, desired temp:");
-        Serial.println(desiredTemperature);
-        heatingOn = true;
-      }
-    }
-    else if (heatingOn) {
-      if (temperature > desiredTemperature) {
-        digitalWrite(heaterRelayPin, LOW);
-        Serial.println("turning off heat, desired temp:");
-        Serial.println(desiredTemperature);
-        heatingOn = false;
-        firstTimeHot = true;
-      }
-    }
-
-    //Serial.println("heatingLoop");
+    FastLED.show();
+    while (true);
   }
+
+
+
+  if (!heatingOn) {
+    if (temperature < desiredTemperature - hysteresis) {
+      digitalWrite(heaterRelayPin, HIGH);
+      Serial.print("turning on heat, desired temp:");
+      Serial.println(desiredTemperature);
+      heatingOn = true;
+    }
+  }
+  else if (heatingOn) {
+    if (temperature > desiredTemperature) {
+      digitalWrite(heaterRelayPin, LOW);
+      Serial.println("turning off heat, desired temp:");
+      Serial.println(desiredTemperature);
+      heatingOn = false;
+      firstTimeHot = true;
+    }
+  }
+
+  //Serial.println("heatingLoop");
+}
 }
 
 
@@ -143,9 +147,7 @@ void ledLoop() {
     startIndex = startIndex + 1;
     FillLEDsFromPaletteColors( startIndex);
   } else {
-    for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
-      leds[i] = CRGB::Blue;
-    }
+    setLeds(CRGB::Blue);
   }
   FastLED.show();
 
@@ -174,6 +176,12 @@ void FillLEDsFromPaletteColors( uint8_t colorIndex)
   for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
     leds[i] = ColorFromPalette( saunaPalette1_p, colorIndex, brightness, currentBlending);
     colorIndex += 3;
+  }
+}
+
+void setLeds(CRGB color) {
+  for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
+    leds[i] = color;
   }
 }
 
