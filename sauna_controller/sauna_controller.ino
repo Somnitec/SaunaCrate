@@ -96,44 +96,37 @@ void heatingLoop() {
     Serial.println("time's up, stopping now");
     heatingOn = false;
     firstTimeHot = false;
-    //while (true);//make this respond to a button press to restart again
   }
-
   else {
     if (temperature > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
       Serial.println("overheated, stopping now");
       heatingOn = false;
       setLeds(CRGB::Black);
+      FastLED.show();
+      while (true);
     }
-    FastLED.show();
-    while (true);
-  }
 
-
-
-  if (!heatingOn) {
-    if (temperature < desiredTemperature - hysteresis) {
-      digitalWrite(heaterRelayPin, HIGH);
-      Serial.print("turning on heat, desired temp:");
-      Serial.println(desiredTemperature);
-      heatingOn = true;
+    if (!heatingOn) {
+      if (temperature < desiredTemperature - hysteresis) {
+        digitalWrite(heaterRelayPin, HIGH);
+        Serial.print("turning on heat, desiredTemperature:");
+        Serial.println(desiredTemperature);
+        heatingOn = true;
+      }
     }
-  }
-  else if (heatingOn) {
-    if (temperature > desiredTemperature) {
-      digitalWrite(heaterRelayPin, LOW);
-      Serial.println("turning off heat, desired temp:");
-      Serial.println(desiredTemperature);
-      heatingOn = false;
-      firstTimeHot = true;
+    else if (heatingOn) {
+      if (temperature > desiredTemperature) {
+        digitalWrite(heaterRelayPin, LOW);
+        Serial.println("turning off heat, desired temp:");
+        Serial.println(desiredTemperature);
+        heatingOn = false;
+        firstTimeHot = true;
+      }
     }
   }
-
   //Serial.println("heatingLoop");
 }
-}
-
 
 void ledLoop() {
   /*
@@ -142,17 +135,15 @@ void ledLoop() {
     ledNo++;
     leds[ledNo % (NUM_LEDS_PER_STRIP * 2)] = CRGB::White;
   */
-  if (firstTimeHot) {
+  //if (firstTimeHot) {
     static uint8_t startIndex = 0;
     startIndex = startIndex + 1;
     FillLEDsFromPaletteColors( startIndex);
-  } else {
-    setLeds(CRGB::Blue);
-  }
+  //} else {
+  //  setLeds(CRGB::Blue);
+ // }
   FastLED.show();
-
   //Serial.println("ledLoop");
-
 }
 
 void buttonLoop() {
@@ -164,9 +155,7 @@ void buttonLoop() {
 
     timer = millis();//reset the timer
   }
-
   //Serial.println("buttonLoop");
-
 }
 
 void FillLEDsFromPaletteColors( uint8_t colorIndex)
@@ -185,30 +174,6 @@ void setLeds(CRGB color) {
   }
 }
 
-/*
-  const TProgmemPalette16 saunaPalette1_p PROGMEM =
-  {
-  CRGB::Red,
-  CRGB::Gray, // 'white' is too bright compared to red and blue
-  CRGB::Blue,
-  CRGB::Black,
-
-  CRGB::Red,
-  CRGB::Gray,
-  CRGB::Green,
-  CRGB::Black,
-
-  CRGB::Red,
-  CRGB::Red,
-  CRGB::Green,
-  CRGB::Green,
-
-  CRGB::Blue,
-  CRGB::Blue,
-  CRGB::Black,
-  CRGB::Black
-  };
-*/
 const TProgmemPalette16 saunaPalette1_p PROGMEM =
 {
   CRGB::Red,
@@ -219,7 +184,7 @@ const TProgmemPalette16 saunaPalette1_p PROGMEM =
   CRGB::Red,
   CRGB::Red,
   CRGB::Red,
-  CRGB::Red,
+  CRGB::Orange,
 
   CRGB::Orange,
   CRGB::Orange,
