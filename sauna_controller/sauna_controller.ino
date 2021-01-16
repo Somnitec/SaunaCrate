@@ -2,10 +2,14 @@
 
 //select  arduino nano "old bootloader"
 #include <Arduino.h>
-#include "Adafruit_Si7021.h"
 #include <Bounce2.h>
 #include <FastLED.h>
 #include <SchedTask.h>
+#include <ss_oled.h>
+#include <Wire.h>
+#include <Adafruit_AM2315.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define heaterRelayPin A2
 #define buttonPin A0
@@ -22,14 +26,16 @@ CRGB leds[NUM_LEDS_PER_STRIP * 2];
 int ledNo = 0;
 
 Bounce debouncer = Bounce();
-Adafruit_Si7021 sensor = Adafruit_Si7021();
 
 int buttonState = 0;
 bool heatingOn = false;
 bool firstTimeHot = false;
 
 
-#define desiredTemperature 85
+Adafruit_AM2315 am2315;
+
+
+float desiredTemperature =75.;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
@@ -59,10 +65,9 @@ void setup() {
 
   Serial.begin(115200);
 
-  if (!sensor.begin()) {
-    Serial.println("Did not find Si7021 sensor!");
-    while (true)
-      ;
+  if (! am2315.begin()) {
+    Serial.println("am2315 sensor not found, check wiring & pullups!");
+    while (1);
   }
 
   FastLED.addLeds<CHIPSET, LED_PIN0, COLOR_ORDER>(leds, 0, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
@@ -81,9 +86,12 @@ void loop() {
 
 void heatingLoop() {
 
+  float temperature, humidity;
 
-  float temperature = sensor.readTemperature();
-  float humidity = sensor.readHumidity();
+  if (! am2315.readTemperatureAndHumidity(&temperature, &humidity)) {
+    Serial.println("Failed to read data from AM2315");
+    return;
+  }
   Serial.print("Humidity:");
   Serial.print(humidity);
   Serial.print("\tTemperature:");
@@ -136,12 +144,12 @@ void ledLoop() {
     leds[ledNo % (NUM_LEDS_PER_STRIP * 2)] = CRGB::White;
   */
   //if (firstTimeHot) {
-    static uint8_t startIndex = 0;
-    startIndex = startIndex + 1;
-    FillLEDsFromPaletteColors( startIndex);
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 1;
+  FillLEDsFromPaletteColors( startIndex);
   //} else {
   //  setLeds(CRGB::Blue);
- // }
+  // }
   FastLED.show();
   //Serial.println("ledLoop");
 }
