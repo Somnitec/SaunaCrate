@@ -61,10 +61,33 @@ SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on 
 TBlendType    currentBlending = LINEARBLEND;
 extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 
+//OLED settings
+#define SDA_PIN -1
+#define SCL_PIN -1
+#define RESET_PIN -1
+#define OLED_ADDR -1
+#define FLIP180 0
+#define INVERT 0
+#define USE_HW_I2C 1
+SSOLED ssoled;
 
 void setup() {
   pinMode(heaterRelayPin, OUTPUT);
   digitalWrite(heaterRelayPin, LOW);
+
+  int rc;
+  rc = oledInit(&ssoled, OLED_128x64, OLED_ADDR, FLIP180, INVERT, USE_HW_I2C, SDA_PIN, SCL_PIN, RESET_PIN, 400000L);       // Standard HW I2C bus at 400Khz
+  if (rc != OLED_NOT_FOUND)
+  {
+    oledFill(&ssoled, 0, 1);
+    oledWriteString(&ssoled, 0, 0, 0, (char *)"start", FONT_NORMAL, 0, 1);
+    delay(2000);
+  }
+  else
+  {
+    while (1) {};//oled not working
+  }
+
 
   pinMode(buttonPin, INPUT_PULLUP);
   debouncer.attach(buttonPin);
@@ -73,7 +96,7 @@ void setup() {
   Serial.begin(115200);
 
   if (! am2315.begin()) {
-    Serial.println("am2315 sensor not found, check wiring & pullups!");
+    Serial.println(F("am2315 sensor not found, check wiring & pullups!"));
     while (1);
   }
 
@@ -85,8 +108,12 @@ void setup() {
 
   FastLED.setBrightness( BRIGHTNESS );
 
-  Serial.println("Started");
+
+
+
+  Serial.println(F("Started"));
   timer = millis();
+
 
 }
 
@@ -100,7 +127,7 @@ void heatingLoop() {
 
   if ((unsigned long)(millis() - timer) >= maxTime) {
     digitalWrite(heaterRelayPin, LOW);
-    Serial.println("time's up, stopping now");
+    Serial.println(F("time's up, stopping now"));
     heatingOn = false;
     firstTimeHot = false;
   }
@@ -113,20 +140,47 @@ void heatingLoop() {
     }
     temperature2 = backupTempSensor.getTempCByIndex(0);
 
-    Serial.print("\tTemperature:");
+    Serial.print(F("\tTemperature:"));
     Serial.print(temperature);
-    Serial.print("\tTemperature2:");
+    Serial.print(F("\tTemperature2:"));
     Serial.print(temperature2);
-    Serial.print("\tDesiredTemperature:");
+    Serial.print(F("\tDesiredTemperature:"));
     Serial.print(desiredTemperature);
-    Serial.print("\tHeatingNow:");
+    Serial.print(F("\tHeatingNow:"));
     Serial.print(heatingOn);
-    Serial.print("\tHumidity:");
+    Serial.print(F("\tHumidity:"));
     Serial.println(humidity);
+
+
+#define txtOffset 50
+    char charVal[10];
+
+    oledFill(&ssoled, 0, 1);
+
+    dtostrf(temperature, 4, 1, charVal);
+    oledWriteString(&ssoled, 0,  0, 0, (char *)"temp:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 0, (char *)charVal, FONT_NORMAL, 0, 1);
+    dtostrf(temperature2, 4, 1, charVal);
+    oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
+    dtostrf(desiredTemperature, 4, 1, charVal);
+    oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
+    dtostrf(heatingOn, 1, 0, charVal);
+    oledWriteString(&ssoled, 0,  0, 3, (char *)"heating:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 3, (char *)charVal, FONT_NORMAL, 0, 1);
+    dtostrf(humidity, 4, 1, charVal);
+    oledWriteString(&ssoled, 0,  0, 4, (char *)"hum:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 4, (char *)charVal, FONT_NORMAL, 0, 1);
+
+    unsigned long timeleft = (millis() - timer)/1000;//(maxTime - (millis() - timer))/60000;//actually time running now
+    dtostrf(timeleft, 4, 0, charVal);
+    oledWriteString(&ssoled, 0,  0, 5, (char *)"time:", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)charVal, FONT_NORMAL, 0, 1);
 
     if (temperature > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
-      Serial.println("overheated, stopping now");
+      Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
       FastLED.show();
@@ -136,7 +190,7 @@ void heatingLoop() {
     if (!heatingOn) {
       if (temperature < desiredTemperature - hysteresis) {
         digitalWrite(heaterRelayPin, HIGH);
-        Serial.print("turning on heat, desiredTemperature:");
+        Serial.print(F("turning on heat, desiredTemperature:"));
         Serial.println(desiredTemperature);
         heatingOn = true;
       }
@@ -144,7 +198,7 @@ void heatingLoop() {
     else if (heatingOn) {
       if (temperature > desiredTemperature) {
         digitalWrite(heaterRelayPin, LOW);
-        Serial.println("turning off heat, desired temp:");
+        Serial.println(F("turning off heat, desired temp:"));
         Serial.println(desiredTemperature);
         heatingOn = false;
         firstTimeHot = true;
@@ -177,7 +231,7 @@ void buttonLoop() {
   debouncer.update();
   if (debouncer.fell()) {
     buttonState++;
-    Serial.print("button Pressed:");
+    Serial.print(F("button Pressed:"));
     Serial.println(buttonState);
 
     timer = millis();//reset the timer
