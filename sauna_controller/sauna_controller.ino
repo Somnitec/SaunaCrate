@@ -11,7 +11,14 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-#define heaterRelayPin A2
+#define ONE_WIRE_BUS A2
+
+OneWire oneWire(ONE_WIRE_BUS);
+
+DallasTemperature backupTempSensor(&oneWire);
+
+
+#define heaterRelayPin 2
 #define buttonPin A0
 
 #define LED_PIN0    9
@@ -35,7 +42,7 @@ bool firstTimeHot = false;
 Adafruit_AM2315 am2315;
 
 
-float desiredTemperature =75.;
+float desiredTemperature = 75.;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
@@ -70,6 +77,9 @@ void setup() {
     while (1);
   }
 
+  backupTempSensor.begin();
+  backupTempSensor.setResolution(9);
+
   FastLED.addLeds<CHIPSET, LED_PIN0, COLOR_ORDER>(leds, 0, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
   FastLED.addLeds<CHIPSET, LED_PIN1, COLOR_ORDER>(leds, NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
 
@@ -86,18 +96,7 @@ void loop() {
 
 void heatingLoop() {
 
-  float temperature, humidity;
 
-  if (! am2315.readTemperatureAndHumidity(&temperature, &humidity)) {
-    Serial.println("Failed to read data from AM2315");
-    return;
-  }
-  Serial.print("Humidity:");
-  Serial.print(humidity);
-  Serial.print("\tTemperature:");
-  Serial.print(temperature);
-  Serial.print("\tDesiredTemperature:");
-  Serial.println(desiredTemperature);
 
   if ((unsigned long)(millis() - timer) >= maxTime) {
     digitalWrite(heaterRelayPin, LOW);
@@ -106,6 +105,25 @@ void heatingLoop() {
     firstTimeHot = false;
   }
   else {
+    float temperature, temperature2, humidity;
+
+    if (! am2315.readTemperatureAndHumidity(&temperature, &humidity)) {
+      //Serial.println("Failed to read data from AM2315");
+      return;
+    }
+    temperature2 = backupTempSensor.getTempCByIndex(0);
+
+    Serial.print("\tTemperature:");
+    Serial.print(temperature);
+    Serial.print("\tTemperature2:");
+    Serial.print(temperature2);
+    Serial.print("\tDesiredTemperature:");
+    Serial.print(desiredTemperature);
+    Serial.print("\tHeatingNow:");
+    Serial.print(heatingOn);
+    Serial.print("\tHumidity:");
+    Serial.println(humidity);
+
     if (temperature > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
       Serial.println("overheated, stopping now");
@@ -134,6 +152,7 @@ void heatingLoop() {
     }
   }
   //Serial.println("heatingLoop");
+  backupTempSensor.requestTemperatures();
 }
 
 void ledLoop() {
