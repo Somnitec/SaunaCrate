@@ -41,7 +41,9 @@ bool firstTimeHot = false;
 Adafruit_AM2315 am2315;
 
 
-float desiredTemperature = 75.;
+float desiredTemperature[] = {45.,55.,65.,75.,85.,95.};
+int tempSettingAmount = 6;
+int tempSetting = 3;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
@@ -70,6 +72,8 @@ extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 #define USE_HW_I2C 1
 SSOLED ssoled;
 
+bool oledFunctional = true;
+
 void setup() {
   Serial.begin(115200);
   Serial.println(F("initializing"));
@@ -89,7 +93,8 @@ void setup() {
   else
   {
     Serial.println(F("oled not found"));
-    while (1) {};//oled not working
+    oledFunctional = false;
+    //while (1) {};//oled not working
   }
 
   pinMode(buttonGndPin, OUTPUT);
@@ -150,39 +155,39 @@ void heatingLoop() {
     Serial.print(F("\tTemperature2:"));
     Serial.print(temperature2);
     Serial.print(F("\tDesiredTemperature:"));
-    Serial.print(desiredTemperature);
+    Serial.print(desiredTemperature[tempSetting%tempSettingAmount]);
     Serial.print(F("\tHeatingNow:"));
     Serial.print(heatingOn);
     Serial.print(F("\tHumidity:"));
     Serial.println(humidity);
 
-
+    if (oledFunctional) {
 #define txtOffset 50
-    char charVal[10];
+      char charVal[10];
 
-    oledFill(&ssoled, 0, 1);
+      oledFill(&ssoled, 0, 1);
 
-    dtostrf(temperature, 4, 1, charVal);
-    oledWriteString(&ssoled, 0,  0, 0, (char *)"temp:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 0, (char *)charVal, FONT_NORMAL, 0, 1);
-    dtostrf(temperature2, 4, 1, charVal);
-    oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
-    dtostrf(desiredTemperature, 4, 1, charVal);
-    oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
-    dtostrf(heatingOn, 1, 0, charVal);
-    oledWriteString(&ssoled, 0,  0, 3, (char *)"heating:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 3, (char *)charVal, FONT_NORMAL, 0, 1);
-    dtostrf(humidity, 4, 1, charVal);
-    oledWriteString(&ssoled, 0,  0, 4, (char *)"hum:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 4, (char *)charVal, FONT_NORMAL, 0, 1);
+      dtostrf(temperature, 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  0, 0, (char *)"temp:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 0, (char *)charVal, FONT_NORMAL, 0, 1);
+      dtostrf(temperature2, 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
+      dtostrf(desiredTemperature[tempSetting%tempSettingAmount], 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
+      dtostrf(heatingOn, 1, 0, charVal);
+      oledWriteString(&ssoled, 0,  0, 3, (char *)"heating:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset+30, 3, (char *)charVal, FONT_NORMAL, 0, 1);
+      dtostrf(humidity, 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  0, 4, (char *)"hum:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 4, (char *)charVal, FONT_NORMAL, 0, 1);
 
-    unsigned long timeleft = (millis() - timer) / 1000; //(maxTime - (millis() - timer))/60000;//actually time running now
-    dtostrf(timeleft, 4, 0, charVal);
-    oledWriteString(&ssoled, 0,  0, 5, (char *)"time:", FONT_NORMAL, 0, 1);
-    oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)charVal, FONT_NORMAL, 0, 1);
-
+      unsigned long timeleft = (millis() - timer) / 1000; //(maxTime - (millis() - timer))/60000;//actually time running now
+      dtostrf(timeleft, 4, 0, charVal);
+      oledWriteString(&ssoled, 0,  0, 5, (char *)"time:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)charVal, FONT_NORMAL, 0, 1);
+    }
     if (temperature > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
       Serial.println(F("overheated, stopping now"));
@@ -193,18 +198,18 @@ void heatingLoop() {
     }
 
     if (!heatingOn) {
-      if (temperature < desiredTemperature - hysteresis) {
+      if (temperature < desiredTemperature[tempSetting%tempSettingAmount] - hysteresis) {
         digitalWrite(heaterRelayPin, HIGH);
         Serial.print(F("turning on heat, desiredTemperature:"));
-        Serial.println(desiredTemperature);
+        Serial.println(desiredTemperature[tempSetting%tempSettingAmount]);
         heatingOn = true;
       }
     }
     else if (heatingOn) {
-      if (temperature > desiredTemperature) {
+      if (temperature > desiredTemperature[tempSetting%tempSettingAmount]) {
         digitalWrite(heaterRelayPin, LOW);
         Serial.println(F("turning off heat, desired temp:"));
-        Serial.println(desiredTemperature);
+        Serial.println(desiredTemperature[tempSetting%tempSettingAmount]);
         heatingOn = false;
         firstTimeHot = true;
       }
@@ -238,6 +243,7 @@ void buttonLoop() {
     buttonState++;
     Serial.print(F("button Pressed:"));
     Serial.println(buttonState);
+    tempSetting++;
 
     timer = millis();//reset the timer
   }
