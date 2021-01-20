@@ -1,7 +1,5 @@
 //sauna controller by Arvid&Marie 2021
 
-//proper time measure and countdown
-//implement door open-time reset
 //display warm up time
 //warm up - 1h wait, 30m after each door
 //see how to fix backupsensor
@@ -26,6 +24,11 @@ DallasTemperature backupTempSensor(&oneWire);
 #define heaterRelayPin 2
 #define buttonGndPin A1
 #define buttonPin A0
+#define doorPin 10
+
+Bounce pushButton = Bounce();
+Bounce doorSwitch = Bounce();
+
 
 #define LED_PIN0    11
 #define LED_PIN1    12
@@ -37,8 +40,6 @@ CRGB leds[NUM_LEDS_PER_STRIP * 2];
 #define FRAMES_PER_SECOND 60
 #define BRIGHTNESS  255
 int ledNo = 0;
-
-Bounce debouncer = Bounce();
 
 int buttonState = 0;
 bool heatingOn = false;
@@ -107,8 +108,13 @@ void setup() {
   pinMode(buttonGndPin, OUTPUT);
   digitalWrite(buttonGndPin, LOW);
   pinMode(buttonPin, INPUT_PULLUP);
-  debouncer.attach(buttonPin);
-  debouncer.interval(30); // interval in ms
+  pushButton.attach(buttonPin);
+  pushButton.interval(30); // interval in ms
+
+
+  pinMode(doorPin, INPUT_PULLUP);
+  doorSwitch.attach(doorPin);
+  doorSwitch.interval(30); // interval in ms
 
 
 
@@ -250,13 +256,19 @@ void ledLoop() {
 }
 
 void buttonLoop() {
-  debouncer.update();
-  if (debouncer.fell()) {
+  pushButton.update();
+  if (pushButton.fell()) {
     buttonState++;
     Serial.print(F("button Pressed:"));
     Serial.println(buttonState);
     tempSetting++;
 
+    timer = millis();//reset the timer
+  }
+
+  doorSwitch.update();
+  if (doorSwitch.rose()) {
+    Serial.println(F("door opened, reset time"));
     timer = millis();//reset the timer
   }
   //Serial.println("buttonLoop");
