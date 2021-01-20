@@ -1,5 +1,12 @@
 //sauna controller by Arvid&Marie 2021
 
+//proper time measure and countdown
+//implement door open-time reset
+//display warm up time
+//warm up - 1h wait, 30m after each door
+//see how to fix backupsensor
+//button press is change color, long press is change temp
+
 //select  arduino nano "old bootloader"
 #include <Arduino.h>
 #include <Bounce2.h>
@@ -41,14 +48,14 @@ bool firstTimeHot = false;
 Adafruit_AM2315 am2315;
 
 
-float desiredTemperature[] = {45.,55.,65.,75.,85.,95.};
+float desiredTemperature[] = {45., 55., 65., 75., 85., 95.};
 int tempSettingAmount = 6;
 int tempSetting = 3;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
 unsigned long timer;
-int maxTime = 1000 * 60 * 60 * 2; //= 2 hours
+unsigned long  maxTime = 60000 * 30; //= 30m
 
 void heatingLoop();
 void ledLoop();
@@ -155,11 +162,15 @@ void heatingLoop() {
     Serial.print(F("\tTemperature2:"));
     Serial.print(temperature2);
     Serial.print(F("\tDesiredTemperature:"));
-    Serial.print(desiredTemperature[tempSetting%tempSettingAmount]);
+    Serial.print(desiredTemperature[tempSetting % tempSettingAmount]);
     Serial.print(F("\tHeatingNow:"));
     Serial.print(heatingOn);
     Serial.print(F("\tHumidity:"));
-    Serial.println(humidity);
+    Serial.print(humidity);
+    Serial.print(F("\ttime:"));
+    Serial.print( timeToString(millis() ));
+    Serial.print(F("\ttimeLeft:"));
+    Serial.println( timeToString(maxTime - (millis() - timer) ));
 
     if (oledFunctional) {
 #define txtOffset 50
@@ -173,20 +184,21 @@ void heatingLoop() {
       dtostrf(temperature2, 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
-      dtostrf(desiredTemperature[tempSetting%tempSettingAmount], 4, 1, charVal);
+      dtostrf(desiredTemperature[tempSetting % tempSettingAmount], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
       dtostrf(heatingOn, 1, 0, charVal);
       oledWriteString(&ssoled, 0,  0, 3, (char *)"heating:", FONT_NORMAL, 0, 1);
-      oledWriteString(&ssoled, 0,  txtOffset+30, 3, (char *)charVal, FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset + 30, 3, (char *)charVal, FONT_NORMAL, 0, 1);
       dtostrf(humidity, 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 4, (char *)"hum:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 4, (char *)charVal, FONT_NORMAL, 0, 1);
 
-      unsigned long timeleft = (millis() - timer) / 1000; //(maxTime - (millis() - timer))/60000;//actually time running now
-      dtostrf(timeleft, 4, 0, charVal);
       oledWriteString(&ssoled, 0,  0, 5, (char *)"time:", FONT_NORMAL, 0, 1);
-      oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)charVal, FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)timeToString(millis()).c_str(), FONT_NORMAL, 0, 1);
+
+      oledWriteString(&ssoled, 0,  0, 6, (char *)"left:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 6, (char *)timeToString(maxTime - (millis() - timer) ).c_str(), FONT_NORMAL, 0, 1);
     }
     if (temperature > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
@@ -198,18 +210,18 @@ void heatingLoop() {
     }
 
     if (!heatingOn) {
-      if (temperature < desiredTemperature[tempSetting%tempSettingAmount] - hysteresis) {
+      if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
         digitalWrite(heaterRelayPin, HIGH);
         Serial.print(F("turning on heat, desiredTemperature:"));
-        Serial.println(desiredTemperature[tempSetting%tempSettingAmount]);
+        Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = true;
       }
     }
     else if (heatingOn) {
-      if (temperature > desiredTemperature[tempSetting%tempSettingAmount]) {
+      if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
         digitalWrite(heaterRelayPin, LOW);
         Serial.println(F("turning off heat, desired temp:"));
-        Serial.println(desiredTemperature[tempSetting%tempSettingAmount]);
+        Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = false;
         firstTimeHot = true;
       }
@@ -290,3 +302,18 @@ const TProgmemPalette16 saunaPalette1_p PROGMEM =
 
 
 };
+
+String timeToString(unsigned long value) {
+  String string = "";
+  unsigned long  secondPart = value / 1000 ;
+  unsigned long  minutePart = secondPart / 60;
+  unsigned long  hourPart = minutePart / 60;
+  string += hourPart;
+  string += ':';
+  if (minutePart % 60 < 10)string += '0';
+  string += minutePart % 60;
+  string += ':';
+  if (secondPart % 60 < 10)string += '0';
+  string += secondPart % 60;
+  return string;
+}
