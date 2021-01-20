@@ -14,15 +14,14 @@
 #define ONE_WIRE_BUS A2
 
 OneWire oneWire(ONE_WIRE_BUS);
-
 DallasTemperature backupTempSensor(&oneWire);
 
-
 #define heaterRelayPin 2
+#define buttonGndPin A1
 #define buttonPin A0
 
-#define LED_PIN0    9
-#define LED_PIN1    3
+#define LED_PIN0    11
+#define LED_PIN1    12
 #define COLOR_ORDER BRG
 #define CHIPSET     WS2811
 #define NUM_LEDS_PER_STRIP 12
@@ -72,46 +71,52 @@ extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 SSOLED ssoled;
 
 void setup() {
+  Serial.begin(115200);
+  Serial.println(F("initializing"));
   pinMode(heaterRelayPin, OUTPUT);
   digitalWrite(heaterRelayPin, LOW);
 
+  Serial.println(F("heaterpin set"));
   int rc;
   rc = oledInit(&ssoled, OLED_128x64, OLED_ADDR, FLIP180, INVERT, USE_HW_I2C, SDA_PIN, SCL_PIN, RESET_PIN, 400000L);       // Standard HW I2C bus at 400Khz
   if (rc != OLED_NOT_FOUND)
   {
+    Serial.println(F("oled started"));
     oledFill(&ssoled, 0, 1);
     oledWriteString(&ssoled, 0, 0, 0, (char *)"start", FONT_NORMAL, 0, 1);
-    delay(2000);
+    //delay(2000);
   }
   else
   {
+    Serial.println(F("oled not found"));
     while (1) {};//oled not working
   }
 
-
+  pinMode(buttonGndPin, OUTPUT);
+  digitalWrite(buttonGndPin, LOW);
   pinMode(buttonPin, INPUT_PULLUP);
   debouncer.attach(buttonPin);
   debouncer.interval(30); // interval in ms
 
-  Serial.begin(115200);
+
 
   if (! am2315.begin()) {
     Serial.println(F("am2315 sensor not found, check wiring & pullups!"));
     while (1);
   }
+  Serial.println(F("am2315 started"));
 
   backupTempSensor.begin();
   backupTempSensor.setResolution(9);
+  Serial.println(F("backup tempsensor started"));
 
   FastLED.addLeds<CHIPSET, LED_PIN0, COLOR_ORDER>(leds, 0, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
   FastLED.addLeds<CHIPSET, LED_PIN1, COLOR_ORDER>(leds, NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
 
   FastLED.setBrightness( BRIGHTNESS );
 
-
-
-
-  Serial.println(F("Started"));
+  Serial.println(F("leds started"));
+  Serial.println(F("all initialized!"));
   timer = millis();
 
 
@@ -173,7 +178,7 @@ void heatingLoop() {
     oledWriteString(&ssoled, 0,  0, 4, (char *)"hum:", FONT_NORMAL, 0, 1);
     oledWriteString(&ssoled, 0,  txtOffset, 4, (char *)charVal, FONT_NORMAL, 0, 1);
 
-    unsigned long timeleft = (millis() - timer)/1000;//(maxTime - (millis() - timer))/60000;//actually time running now
+    unsigned long timeleft = (millis() - timer) / 1000; //(maxTime - (millis() - timer))/60000;//actually time running now
     dtostrf(timeleft, 4, 0, charVal);
     oledWriteString(&ssoled, 0,  0, 5, (char *)"time:", FONT_NORMAL, 0, 1);
     oledWriteString(&ssoled, 0,  txtOffset, 5, (char *)charVal, FONT_NORMAL, 0, 1);
