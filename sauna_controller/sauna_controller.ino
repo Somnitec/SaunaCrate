@@ -1,9 +1,12 @@
 //sauna controller by Arvid&Marie 2021
+//select  arduino nano "old bootloader" to be able to upload
 
-//see how to fix backupsensor
-//button press is change color, long press is change temp
 
-//select  arduino nano "old bootloader"
+//todo
+//add one led to indicate status of sauna (heatingOn,firstimeHot)...
+//make OLED respond to buttonpresses, more clear information 
+//double check safety loops, in case something crashes?
+
 #include <Arduino.h>
 #include <Bounce2.h>
 #include <FastLED.h>
@@ -35,11 +38,16 @@ Bounce doorSwitch = Bounce();
 #define NUM_LEDS_PER_STRIP 12
 CRGB leds[NUM_LEDS_PER_STRIP * 2];
 
+TBlendType    currentBlending = LINEARBLEND;
+extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
+
+
+
 #define FRAMES_PER_SECOND 60
 #define BRIGHTNESS  255
 int ledNo = 0;
 
-int buttonState = 0;
+
 bool heatingOn = false;
 bool firstTimeHot = false;
 
@@ -57,6 +65,8 @@ unsigned long timer;
 unsigned long  maxTime = 60000 * 30; //= 30m
 unsigned long timeToGetHot = 0;
 
+int buttonPressTime = 2000;//ms
+
 void heatingLoop();
 void ledLoop();
 void buttonLoop();
@@ -66,8 +76,6 @@ SchedTask HeatingTask (0, 1000, heatingLoop);              // define the turn on
 SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
 SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on task (dispatch now, every 3 sec)
 
-TBlendType    currentBlending = LINEARBLEND;
-extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 
 //OLED settings
 #define SDA_PIN -1
@@ -138,6 +146,12 @@ void setup() {
 
 
 }
+
+//this needs to be here so that the functions get loaded properly
+typedef void (*SimplePatternList[])();
+SimplePatternList ledPatterns = {red, green, redOrange};
+int currentLedPattern = 0;
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 void loop() {
   SchedBase::dispatcher();
@@ -252,31 +266,27 @@ void heatingLoop() {
 }
 
 void ledLoop() {
-  /*
-    //test leds
-    leds[ledNo % (NUM_LEDS_PER_STRIP * 2)] = CRGB::Black;
-    ledNo++;
-    leds[ledNo % (NUM_LEDS_PER_STRIP * 2)] = CRGB::White;
-  */
-  //if (firstTimeHot) {
-  static uint8_t startIndex = 0;
-  startIndex = startIndex + 1;
-  FillLEDsFromPaletteColors( startIndex);
-  //} else {
-  //  setLeds(CRGB::Blue);
-  // }
+  ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
   FastLED.show();
   //Serial.println("ledLoop");
 }
 
+unsigned long buttonPressTimeStamp = 0;
 void buttonLoop() {
   pushButton.update();
   if (pushButton.fell()) {
-    buttonState++;
-    Serial.print(F("button Pressed:"));
-    Serial.println(buttonState);
-    tempSetting++;
-
+    Serial.print(F("button Pressed"));
+    buttonPressTimeStamp = millis();
+  }
+  if (pushButton.rose()) {
+    if ((millis() - buttonPressTimeStamp) > buttonPressTime) {
+      tempSetting++;
+      Serial.println(F("button long->change temp"));
+    }
+    else {
+      currentLedPattern++;
+      Serial.println(F("button short->change LED"));
+    }
     timer = millis();//reset the timer
   }
 
@@ -288,19 +298,41 @@ void buttonLoop() {
   //Serial.println("buttonLoop");
 }
 
-void FillLEDsFromPaletteColors( uint8_t colorIndex)
+uint8_t ROIndex = 0;
+void redOrange( )
 {
   uint8_t brightness = 255;
-
+  uint8_t colorIndex = ROIndex;
   for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
     leds[i] = ColorFromPalette( saunaPalette1_p, colorIndex, brightness, currentBlending);
     colorIndex += 3;
   }
+  ROIndex++;
 }
 
 void setLeds(CRGB color) {
   for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
     leds[i] = color;
+  }
+}
+
+void red() {
+
+  for (int i = 0; i < NUM_LEDS_PER_STRIP ; i++) {
+    leds[i] = CHSV(20, 200, map(i, 0, NUM_LEDS_PER_STRIP , 255, 150));
+  }
+  for (int i = 0; i < NUM_LEDS_PER_STRIP ; i++) {
+    leds[i+NUM_LEDS_PER_STRIP] = CHSV(10, 200, map(i, 0, NUM_LEDS_PER_STRIP , 255, 150));
+  }
+}
+
+void green() {
+
+  for (int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
+    leds[i] = CHSV(100, 200, map(i, 0, NUM_LEDS_PER_STRIP * 2, 255, 100));
+  }
+  for (int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
+    leds[i+NUM_LEDS_PER_STRIP] = CHSV(110, 200, map(i, 0, NUM_LEDS_PER_STRIP * 2, 255, 100));
   }
 }
 
