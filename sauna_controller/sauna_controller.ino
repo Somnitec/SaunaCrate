@@ -1,6 +1,5 @@
 //sauna controller by Arvid&Marie 2021
 
-//warm up - 1h wait, 30m after each door
 //see how to fix backupsensor
 //button press is change color, long press is change temp
 
@@ -213,12 +212,14 @@ void heatingLoop() {
 
 
     }
-    if (temperature > maxTemp) {
+    if (temperature > maxTemp || temperature2 > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
       Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
       FastLED.show();
+      oledFill(&ssoled, 0, 1);
+      oledWriteString(&ssoled, 0,  0, 0, (char *)"OVERHEATED", FONT_NORMAL, 0, 1);
       while (true);
     }
 
