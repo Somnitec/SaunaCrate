@@ -57,6 +57,7 @@ int tempSetting = 3;
 
 unsigned long timer;
 unsigned long  maxTime = 60000 * 30; //= 30m
+unsigned long timeToGetHot = 0;
 
 void heatingLoop();
 void ledLoop();
@@ -176,11 +177,13 @@ void heatingLoop() {
     Serial.print(F("\ttime:"));
     Serial.print( timeToString(millis() ));
     Serial.print(F("\ttimeLeft:"));
-    Serial.println( timeToString(maxTime - (millis() - timer) ));
+    Serial.print( timeToString(maxTime - (millis() - timer) ));
+    Serial.print(F("\ttimeToGetHot:"));
+    Serial.println( timeToString(timeToGetHot));
 
     if (oledFunctional) {
 #define txtOffset 50
-      char charVal[10];
+    char charVal[10];
 
       oledFill(&ssoled, 0, 1);
 
@@ -205,9 +208,14 @@ void heatingLoop() {
 
       oledWriteString(&ssoled, 0,  0, 6, (char *)"left:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 6, (char *)timeToString(maxTime - (millis() - timer) ).c_str(), FONT_NORMAL, 0, 1);
+
+      oledWriteString(&ssoled, 0,  0, 7, (char *)"tHot:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 7, (char *)timeToString(timeToGetHot ).c_str(), FONT_NORMAL, 0, 1);
+
+
     }
     if (temperature > maxTemp) {
-      digitalWrite(heaterRelayPin, LOW);
+    digitalWrite(heaterRelayPin, LOW);
       Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
@@ -216,7 +224,7 @@ void heatingLoop() {
     }
 
     if (!heatingOn) {
-      if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
+    if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
         digitalWrite(heaterRelayPin, HIGH);
         Serial.print(F("turning on heat, desiredTemperature:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
@@ -224,12 +232,15 @@ void heatingLoop() {
       }
     }
     else if (heatingOn) {
-      if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
+    if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
         digitalWrite(heaterRelayPin, LOW);
         Serial.println(F("turning off heat, desired temp:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = false;
+
+        if (!firstTimeHot)timeToGetHot = millis();
         firstTimeHot = true;
+
       }
     }
   }
