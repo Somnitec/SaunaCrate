@@ -1,6 +1,5 @@
 //sauna controller by Arvid&Marie 2021
 
-//display warm up time
 //warm up - 1h wait, 30m after each door
 //see how to fix backupsensor
 //button press is change color, long press is change temp
@@ -149,7 +148,7 @@ void heatingLoop() {
 
 
 
-  if ((unsigned long)(millis() - timer) >= maxTime) {
+  if ((unsigned long)(millis() - timer) >= maxTime && firstTimeHot) {
     digitalWrite(heaterRelayPin, LOW);
     Serial.println(F("time's up, stopping now"));
     heatingOn = false;
@@ -183,7 +182,7 @@ void heatingLoop() {
 
     if (oledFunctional) {
 #define txtOffset 50
-    char charVal[10];
+      char charVal[10];
 
       oledFill(&ssoled, 0, 1);
 
@@ -215,7 +214,7 @@ void heatingLoop() {
 
     }
     if (temperature > maxTemp) {
-    digitalWrite(heaterRelayPin, LOW);
+      digitalWrite(heaterRelayPin, LOW);
       Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
@@ -224,7 +223,7 @@ void heatingLoop() {
     }
 
     if (!heatingOn) {
-    if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
+      if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
         digitalWrite(heaterRelayPin, HIGH);
         Serial.print(F("turning on heat, desiredTemperature:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
@@ -232,13 +231,16 @@ void heatingLoop() {
       }
     }
     else if (heatingOn) {
-    if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
+      if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
         digitalWrite(heaterRelayPin, LOW);
         Serial.println(F("turning off heat, desired temp:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = false;
 
-        if (!firstTimeHot)timeToGetHot = millis();
+        if (!firstTimeHot) {
+          timeToGetHot = millis();
+          timer = millis();//start counting time from firt time to get hot
+        }
         firstTimeHot = true;
 
       }
