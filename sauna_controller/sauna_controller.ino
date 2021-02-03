@@ -4,7 +4,6 @@
 
 //todo
 //calibrate temperature correction
-//make a 15m led program
 //make the heating with the heating elements being switched progressively
 //add one led to indicate status of sauna (heatingOn,firstimeHot)...
 //double check safety loops, in case something crashes, how to ensure shutdown?
@@ -47,7 +46,7 @@ Bounce doorSwitch = Bounce();
 #define NUM_LEDS_PER_STRIP 12
 CRGB leds[NUM_LEDS_PER_STRIP * 2];
 
-TBlendType    currentBlending = LINEARBLEND;
+
 extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 
 #define BRIGHTNESS  255
@@ -61,7 +60,7 @@ bool firstTimeHot = false;
 Adafruit_AM2315 am2315;
 
 
-float desiredTemperature[] = {55.,60., 65.,70., 75.,80., 85.,90., 95.,100.};
+float desiredTemperature[] = {55., 60., 65., 70., 75., 80., 85., 90., 95., 100.};
 int tempSettingAmount = 10;
 int tempSetting = 2;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
@@ -78,7 +77,8 @@ void ledLoop();
 void buttonLoop();
 
 SchedTask HeatingTask (0, 1000, heatingLoop);              // define the turn on task (dispatch now, every 3 sec)
-SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
+//SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
+SchedTask LedTask (300, 500, ledLoop);//run every .1s
 SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on task (dispatch now, every 3 sec)
 
 
@@ -167,7 +167,7 @@ void setup() {
 
 //this needs to be here so that the functions get loaded properly
 typedef void (*SimplePatternList[])();
-SimplePatternList ledPatterns = {red, green, redOrange};
+SimplePatternList ledPatterns = {timeProgram, red, green};
 int currentLedPattern = 0;
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -218,7 +218,7 @@ void heatingLoop() {
 
     if (oledFunctional) {
 #define txtOffset 50
-      
+
 
       oledFill(&ssoled, 0, 1);
 
@@ -308,7 +308,7 @@ void buttonLoop() {
       Serial.println(F("button long->change LED"));
       oledFill(&ssoled, 0, 1);
       oledWriteString(&ssoled, 0,  0, 3, (char *)"led pattern", FONT_NORMAL, 0, 1);
-      dtostrf(currentLedPattern, 4, 1, charVal);
+      dtostrf(currentLedPattern % ARRAY_SIZE(ledPatterns), 4, 1, charVal);
       oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
       delay(1000);
     }
@@ -332,16 +332,20 @@ void buttonLoop() {
   //Serial.println("buttonLoop");
 }
 
-uint8_t ROIndex = 0;
-void redOrange( )
+void timeProgram( )
 {
-  uint8_t brightness = 255;
-  uint8_t colorIndex = ROIndex;
-  for ( int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
-    leds[i] = ColorFromPalette( saunaPalette1_p, colorIndex, brightness, currentBlending);
-    colorIndex += 3;
+
+  unsigned long colorIndex = map(millis() - timer, 0,15* 60000, 0, 255);
+  dtostrf(colorIndex, 4, 1, charVal);
+  oledWriteString(&ssoled, 0,  105, 0, charVal, FONT_NORMAL, 0, 1);
+  if (colorIndex > 255) {
+    setLeds(  saunaPalette1_p[0]);
   }
-  ROIndex++;
+  else {
+    for ( int i = NUM_LEDS_PER_STRIP * 2; i > 0 ; i--) {
+      leds[i] = ColorFromPalette( saunaPalette1_p, colorIndex + i, 255, LINEARBLEND);
+    }
+  }
 }
 
 void setLeds(CRGB color) {
@@ -372,25 +376,25 @@ void green() {
 
 const TProgmemPalette16 saunaPalette1_p PROGMEM =
 {
-  CRGB::Red,
-  CRGB::Red,
-  CRGB::Red,
-  CRGB::Red,
+  CRGB::Grey,
+  CRGB::Linen ,
+  CRGB::MediumAquamarine,
+  CRGB::LavenderBlush ,
 
+  CRGB::LightBlue ,
   CRGB::Red,
-  CRGB::Red,
-  CRGB::Red,
-  CRGB::Orange,
-
-  CRGB::Orange,
-  CRGB::Orange,
-  CRGB::Orange,
+  CRGB::MediumSlateBlue ,
   CRGB::Orange,
 
-  CRGB::Orange,
-  CRGB::Orange,
-  CRGB::Orange,
-  CRGB::Orange,
+  CRGB::LightCoral ,
+  CRGB::Goldenrod ,
+  CRGB::BlanchedAlmond ,
+  CRGB::DarkOliveGreen ,
+
+  CRGB::DarkMagenta ,
+  CRGB::ForestGreen ,
+  CRGB::DarkOrange ,
+  CRGB::Grey,
 
 
 };
