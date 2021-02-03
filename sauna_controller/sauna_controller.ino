@@ -6,7 +6,6 @@
 //calibrate temperature correction
 //make the heating with the heating elements being switched progressively
 //double check safety loops, in case something crashes, how to ensure shutdown?
-//add 'loading bar' on bottom of the oled screen to see heat level status from the outside
 //clean up code and make setting apparent
 //heating graph on oled?
 
@@ -249,6 +248,17 @@ void heatingLoop() {
       oledWriteString(&ssoled, 0,  txtOffset, 7, (char *)timeToString(timeToGetHot ).c_str(), FONT_NORMAL, 0, 1);
 
 
+      //make a little bar showing the heating level graphically
+#define lineEnd 123
+      int heatingLevel = map (temperature, 20, desiredTemperature[tempSetting % tempSettingAmount], 0, 7);
+      for ( int i = 7; i >= 7 - heatingLevel; i--) {
+        if (!firstTimeHot)    oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"|", FONT_NORMAL, 0, 1);
+        else     oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"+", FONT_NORMAL, 0, 1);
+
+      }
+
+
+
     }
     if (temperature > maxTemp || temperature2 > maxTemp) {
       digitalWrite(heaterRelayPin, LOW);
@@ -331,17 +341,17 @@ void buttonLoop() {
 
 void ledLoop() {
   ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
-  if(heatingOn)  leds[0]= CRGB::Red;
-  else leds[0]= CRGB::Grey;
+  if (heatingOn)  leds[0] = CRGB::Red;
+  else leds[0] = CRGB::Grey;
   FastLED.show();
   //Serial.println("ledLoop");
-  if(!firstTimeHot)digitalWrite(ledPin,!digitalRead(ledPin));//blinking light indicator that maxTemp has not yet been reached
+  if (!firstTimeHot)digitalWrite(ledPin, !digitalRead(ledPin)); //blinking light indicator that maxTemp has not yet been reached
 }
 
 void timeProgram( )
 {
 
-  unsigned long colorIndex = map(millis() - timer, 0,15* 60000, 0, 255);
+  unsigned long colorIndex = map(millis() - timer, 0, 15 * 60000, 0, 255);
   dtostrf(colorIndex, 4, 1, charVal);
   oledWriteString(&ssoled, 0,  105, 0, charVal, FONT_NORMAL, 0, 1);
   if (colorIndex > 255) {
