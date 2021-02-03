@@ -5,9 +5,7 @@
 //todo
 //calibrate temperature correction
 //make the heating with the heating elements being switched progressively
-//add one led to indicate status of sauna (heatingOn,firstimeHot)...
 //double check safety loops, in case something crashes, how to ensure shutdown?
-//add arduino blinking led for easy status info?
 //add 'loading bar' on bottom of the oled screen to see heat level status from the outside
 //clean up code and make setting apparent
 //heating graph on oled?
@@ -34,6 +32,8 @@ DallasTemperature backupTempSensor(&oneWire);
 #define buttonGndPin A1
 #define buttonPin A0
 #define doorPin 10
+
+#define ledPin 13
 
 Bounce pushButton = Bounce();
 Bounce doorSwitch = Bounce();
@@ -136,7 +136,8 @@ void setup() {
   doorSwitch.attach(doorPin);
   doorSwitch.interval(30); // interval in ms
 
-
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);
 
   if (! am2315.begin()) {
     Serial.println(F("am2315 sensor not found, check wiring & pullups!"));
@@ -334,6 +335,7 @@ void ledLoop() {
   else leds[0]= CRGB::Grey;
   FastLED.show();
   //Serial.println("ledLoop");
+  if(!firstTimeHot)digitalWrite(ledPin,!digitalRead(ledPin));//blinking light indicator that maxTemp has not yet been reached
 }
 
 void timeProgram( )
