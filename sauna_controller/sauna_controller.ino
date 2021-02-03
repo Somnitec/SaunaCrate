@@ -288,11 +288,7 @@ void heatingLoop() {
   backupTempSensor.requestTemperatures();
 }
 
-void ledLoop() {
-  ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
-  FastLED.show();
-  //Serial.println("ledLoop");
-}
+
 
 unsigned long buttonPressTimeStamp = 0;
 void buttonLoop() {
@@ -332,6 +328,14 @@ void buttonLoop() {
   //Serial.println("buttonLoop");
 }
 
+void ledLoop() {
+  ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
+  if(heatingOn)  leds[0]= CRGB::Red;
+  else leds[0]= CRGB::Grey;
+  FastLED.show();
+  //Serial.println("ledLoop");
+}
+
 void timeProgram( )
 {
 
@@ -342,7 +346,7 @@ void timeProgram( )
     setLeds(  saunaPalette1_p[0]);
   }
   else {
-    for ( int i = NUM_LEDS_PER_STRIP * 2; i > 0 ; i--) {
+    for ( int i = NUM_LEDS_PER_STRIP * 2; i >= 0 ; i--) {
       leds[i] = ColorFromPalette( saunaPalette1_p, colorIndex + i, 255, LINEARBLEND);
     }
   }
