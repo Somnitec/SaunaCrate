@@ -4,7 +4,6 @@
 
 //todo
 //calibrate temperature correction
-//add timer before start while pressing button
 //make a 15m led program
 //make the heating with the heating elements being switched progressively
 //add one led to indicate status of sauna (heatingOn,firstimeHot)...
@@ -74,7 +73,7 @@ unsigned long timer;
 unsigned long  maxTime = 60000 * 30; //= 30m
 unsigned long timeToGetHot = 0;
 
-int buttonPressTime = 2000;//ms
+int buttonPressTime = 1000;//ms
 
 void heatingLoop();
 void ledLoop();
@@ -97,7 +96,8 @@ SSOLED ssoled;
 
 bool oledFunctional = true;
 
-float temp0adjust[] =   {13., 9., 65., 75.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+//float temp0adjust[] =   {13., 9., 65., 75.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 
 
@@ -117,7 +117,7 @@ void setup() {
   {
     Serial.println(F("oled started"));
     oledFill(&ssoled, 0, 1);
-    oledWriteString(&ssoled, 0, 0, 0, (char *)"start", FONT_NORMAL, 0, 1);
+    oledWriteString(&ssoled, 0, 50, 7, (char *)"starting", FONT_NORMAL, 0, 1);
     //delay(2000);
   }
   else
@@ -160,6 +160,11 @@ void setup() {
   timer = millis();
 
 
+  pushButton.update();
+  if (!pushButton.read()) {
+    timerStartup();
+  }
+
 }
 
 //this needs to be here so that the functions get loaded properly
@@ -189,8 +194,8 @@ void heatingLoop() {
       //Serial.println("Failed to read data from AM2315");
       return;
     }
-    if(temperature2 = backupTempSensor.getTempCByIndex(0)==85)temperature2=0;//85 is a false reading, so it's discarded
-    
+    if (temperature2 = backupTempSensor.getTempCByIndex(0) == 85)temperature2 = 0; //85 is a false reading, so it's discarded
+
 
     temperature = fmap(temperature, temp0adjust[0], temp0adjust[2], temp0adjust[1], temp0adjust[3]);
 
@@ -252,8 +257,8 @@ void heatingLoop() {
       heatingOn = false;
       setLeds(CRGB::Black);
       FastLED.show();
-      //oledFill(&ssoled, 0, 1);
-      //oledWriteString(&ssoled, 0,  0, 0, (char *)"OVERHEATED", FONT_NORMAL, 0, 1);
+      oledFill(&ssoled, 0, 1);
+      oledWriteString(&ssoled, 0,  0, 0, (char *)"OVERHEATED", FONT_NORMAL, 0, 1);
       while (true);
     }
 
@@ -380,6 +385,49 @@ const TProgmemPalette16 saunaPalette1_p PROGMEM =
 
 
 };
+
+void timerStartup() {
+  unsigned long waitTime = 0;
+  Serial.println(F("timerStartup"));
+  oledFill(&ssoled, 0, 1);
+  oledWriteString(&ssoled, 0,  50, 3, (char *)"Time delay", FONT_NORMAL, 0, 1);
+  oledWriteString(&ssoled, 0,  0, 4, (char *)"short press +30m", FONT_NORMAL, 0, 1);
+  oledWriteString(&ssoled, 0,  0, 5, (char *)"long press confirm", FONT_NORMAL, 0, 1);
+  oledWriteString(&ssoled, 0,  0, 6, (char *)"wait:", FONT_NORMAL, 0, 1);
+
+  oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTime ).c_str(), FONT_NORMAL, 0, 1);
+
+  pushButton.update();
+  while (true) {
+    pushButton.update();
+    if (pushButton.fell()) {
+      Serial.print(F("button Pressed"));
+      buttonPressTimeStamp = millis();
+    }
+    if (buttonPressTimeStamp) {
+      if (pushButton.rose()) {
+        if ((millis() - buttonPressTimeStamp) > buttonPressTime) {
+
+          Serial.println(F("button long->timer set"));
+          unsigned long waitTimer = millis();
+          while (millis() < waitTimer + waitTime) {//waiting
+            oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTimer - millis()+ waitTime ).c_str(), FONT_NORMAL, 0, 1);
+            delay(250);
+          }
+          return;
+        }
+        else {
+          Serial.println(F("button short->add 30m"));
+          waitTime += 60000 * 30;
+
+          oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTime ).c_str(), FONT_NORMAL, 0, 1);
+
+        }
+        timer = millis();//reset t7he timer
+      }
+    }
+  }
+}
 
 String timeToString(unsigned long value) {
   String string = "";
