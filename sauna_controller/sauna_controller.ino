@@ -3,9 +3,21 @@
 
 
 //todo
+//calibrate temperature correction
+//add timer before start while pressing button
+//make a 15m led program
+//make the heating with the heating elements being switched progressively
 //add one led to indicate status of sauna (heatingOn,firstimeHot)...
-//make OLED respond to buttonpresses, more clear information 
-//double check safety loops, in case something crashes?
+//make OLED respond to buttonpresses, more clear information (keep result of the b
+//switch led and temp switch settings?
+//double check safety loops, in case something crashes, how to ensure shutdown?
+//add arduino blinking led for easy status info?
+//add 'loading bar' on bottom of the oled screen to see heat level status from the outside
+//clean up code and make setting apparent
+//heating graph on oled?
+
+
+
 
 #include <Arduino.h>
 #include <Bounce2.h>
@@ -41,9 +53,6 @@ CRGB leds[NUM_LEDS_PER_STRIP * 2];
 TBlendType    currentBlending = LINEARBLEND;
 extern const TProgmemPalette16 saunaPalette1_p PROGMEM;
 
-
-
-#define FRAMES_PER_SECOND 60
 #define BRIGHTNESS  255
 int ledNo = 0;
 
@@ -57,7 +66,7 @@ Adafruit_AM2315 am2315;
 
 float desiredTemperature[] = {45., 55., 65., 75., 85., 95.};
 int tempSettingAmount = 6;
-int tempSetting = 3;
+int tempSetting = 2;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
@@ -72,7 +81,6 @@ void ledLoop();
 void buttonLoop();
 
 SchedTask HeatingTask (0, 1000, heatingLoop);              // define the turn on task (dispatch now, every 3 sec)
-//SchedTask LedTask (300, 1000 / FRAMES_PER_SECOND, ledLoop);         // define the turn off task (dispatch in 1 sec, every 3 sec)
 SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
 SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on task (dispatch now, every 3 sec)
 
@@ -82,12 +90,19 @@ SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on 
 #define SCL_PIN -1
 #define RESET_PIN -1
 #define OLED_ADDR -1
-#define FLIP180 0
+#define FLIP180 1
 #define INVERT 0
 #define USE_HW_I2C 1
 SSOLED ssoled;
 
 bool oledFunctional = true;
+
+float temp0adjust[] =   {13., 9., 65., 75.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+
+
+
+
 
 void setup() {
   Serial.begin(115200);
@@ -174,7 +189,12 @@ void heatingLoop() {
       //Serial.println("Failed to read data from AM2315");
       return;
     }
-    temperature2 = backupTempSensor.getTempCByIndex(0);
+    if(temperature2 = backupTempSensor.getTempCByIndex(0)==85)temperature2=0;//85 is a false reading, so it's discarded
+    
+
+    temperature = fmap(temperature, temp0adjust[0], temp0adjust[2], temp0adjust[1], temp0adjust[3]);
+
+    temperature2 = fmap(temperature2, temp2adjust[0], temp2adjust[2], temp2adjust[1], temp2adjust[3]);
 
     Serial.print(F("\tTemperature:"));
     Serial.print(temperature);
@@ -232,8 +252,8 @@ void heatingLoop() {
       heatingOn = false;
       setLeds(CRGB::Black);
       FastLED.show();
-      oledFill(&ssoled, 0, 1);
-      oledWriteString(&ssoled, 0,  0, 0, (char *)"OVERHEATED", FONT_NORMAL, 0, 1);
+      //oledFill(&ssoled, 0, 1);
+      //oledWriteString(&ssoled, 0,  0, 0, (char *)"OVERHEATED", FONT_NORMAL, 0, 1);
       while (true);
     }
 
@@ -322,7 +342,7 @@ void red() {
     leds[i] = CHSV(20, 200, map(i, 0, NUM_LEDS_PER_STRIP , 255, 150));
   }
   for (int i = 0; i < NUM_LEDS_PER_STRIP ; i++) {
-    leds[i+NUM_LEDS_PER_STRIP] = CHSV(10, 200, map(i, 0, NUM_LEDS_PER_STRIP , 255, 150));
+    leds[i + NUM_LEDS_PER_STRIP] = CHSV(10, 200, map(i, 0, NUM_LEDS_PER_STRIP , 255, 150));
   }
 }
 
@@ -332,7 +352,7 @@ void green() {
     leds[i] = CHSV(100, 200, map(i, 0, NUM_LEDS_PER_STRIP * 2, 255, 100));
   }
   for (int i = 0; i < NUM_LEDS_PER_STRIP * 2; i++) {
-    leds[i+NUM_LEDS_PER_STRIP] = CHSV(110, 200, map(i, 0, NUM_LEDS_PER_STRIP * 2, 255, 100));
+    leds[i + NUM_LEDS_PER_STRIP] = CHSV(110, 200, map(i, 0, NUM_LEDS_PER_STRIP * 2, 255, 100));
   }
 }
 
@@ -374,4 +394,9 @@ String timeToString(unsigned long value) {
   if (secondPart % 60 < 10)string += '0';
   string += secondPart % 60;
   return string;
+}
+
+float fmap (float sensorValue, float sensorMin, float sensorMax, float outMin, float outMax)
+{
+  return (sensorValue - sensorMin) * (outMax - outMin) / (sensorMax - sensorMin) + outMin;
 }
