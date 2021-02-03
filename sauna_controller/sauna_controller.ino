@@ -7,8 +7,6 @@
 //make a 15m led program
 //make the heating with the heating elements being switched progressively
 //add one led to indicate status of sauna (heatingOn,firstimeHot)...
-//make OLED respond to buttonpresses, more clear information (keep result of the b
-//switch led and temp switch settings?
 //double check safety loops, in case something crashes, how to ensure shutdown?
 //add arduino blinking led for easy status info?
 //add 'loading bar' on bottom of the oled screen to see heat level status from the outside
@@ -63,8 +61,8 @@ bool firstTimeHot = false;
 Adafruit_AM2315 am2315;
 
 
-float desiredTemperature[] = {45., 55., 65., 75., 85., 95.};
-int tempSettingAmount = 6;
+float desiredTemperature[] = {55.,60., 65.,70., 75.,80., 85.,90., 95.,100.};
+int tempSettingAmount = 10;
 int tempSetting = 2;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
@@ -93,7 +91,7 @@ SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on 
 #define INVERT 0
 #define USE_HW_I2C 1
 SSOLED ssoled;
-
+char charVal[10];
 bool oledFunctional = true;
 
 //float temp0adjust[] =   {13., 9., 65., 75.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
@@ -220,7 +218,7 @@ void heatingLoop() {
 
     if (oledFunctional) {
 #define txtOffset 50
-      char charVal[10];
+      
 
       oledFill(&ssoled, 0, 1);
 
@@ -305,12 +303,23 @@ void buttonLoop() {
   }
   if (pushButton.rose()) {
     if ((millis() - buttonPressTimeStamp) > buttonPressTime) {
-      tempSetting++;
-      Serial.println(F("button long->change temp"));
+
+      currentLedPattern++;
+      Serial.println(F("button long->change LED"));
+      oledFill(&ssoled, 0, 1);
+      oledWriteString(&ssoled, 0,  0, 3, (char *)"led pattern", FONT_NORMAL, 0, 1);
+      dtostrf(currentLedPattern, 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
+      delay(1000);
     }
     else {
-      currentLedPattern++;
-      Serial.println(F("button short->change LED"));
+      tempSetting++;
+      Serial.println(F("button short->change temp"));
+      oledFill(&ssoled, 0, 1);
+      oledWriteString(&ssoled, 0,  0, 3, (char *)"temp setting", FONT_NORMAL, 0, 1);
+      dtostrf(desiredTemperature[tempSetting % tempSettingAmount], 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
+      delay(1000);
     }
     timer = millis();//reset the timer
   }
@@ -411,7 +420,7 @@ void timerStartup() {
           Serial.println(F("button long->timer set"));
           unsigned long waitTimer = millis();
           while (millis() < waitTimer + waitTime) {//waiting
-            oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTimer - millis()+ waitTime ).c_str(), FONT_NORMAL, 0, 1);
+            oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTimer - millis() + waitTime ).c_str(), FONT_NORMAL, 0, 1);
             delay(250);
           }
           return;
