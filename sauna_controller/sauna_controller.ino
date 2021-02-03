@@ -3,14 +3,8 @@
 
 
 //todo
-//calibrate temperature correction
-//make the heating with the heating elements being switched progressively
 //double check safety loops, in case something crashes, how to ensure shutdown?
-//clean up code and make setting apparent
-//heating graph on oled?
-
-
-
+//clean up code
 
 #include <Arduino.h>
 #include <Bounce2.h>
@@ -27,7 +21,8 @@
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature backupTempSensor(&oneWire);
 
-#define heaterRelayPin 2
+#define heaterRelayPin0 2
+#define heaterRelayPin1 4
 #define buttonGndPin A1
 #define buttonPin A0
 #define doorPin 10
@@ -54,16 +49,18 @@ int ledNo = 0;
 
 bool heatingOn = false;
 bool firstTimeHot = false;
-
+bool fullHeat = false;
 
 Adafruit_AM2315 am2315;
 
 
 float desiredTemperature[] = {55., 60., 65., 70., 75., 80., 85., 90., 95., 100.};
 int tempSettingAmount = 10;
-int tempSetting = 5;
+int tempSetting = 6;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
+#define heatTemperRange 2
+bool heatingElement = 0;
 
 unsigned long timer;
 unsigned long  maxTime = 60000 * 30; //= 30m
@@ -104,8 +101,10 @@ float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highM
 void setup() {
   Serial.begin(115200);
   Serial.println(F("initializing"));
-  pinMode(heaterRelayPin, OUTPUT);
-  digitalWrite(heaterRelayPin, LOW);
+  pinMode(heaterRelayPin0, OUTPUT);
+  digitalWrite(heaterRelayPin0, LOW);
+  pinMode(heaterRelayPin1, OUTPUT);
+  digitalWrite(heaterRelayPin1, LOW);
 
   Serial.println(F("heaterpin set"));
   int rc;
@@ -176,11 +175,9 @@ void loop() {
 }
 
 void heatingLoop() {
-
-
-
   if ((unsigned long)(millis() - timer) >= maxTime && firstTimeHot) {
-    digitalWrite(heaterRelayPin, LOW);
+    digitalWrite(heaterRelayPin0, LOW);
+    digitalWrite(heaterRelayPin1, LOW);
     Serial.println(F("time's up, stopping now"));
     heatingOn = false;
     firstTimeHot = false;
@@ -193,7 +190,6 @@ void heatingLoop() {
       return;
     }
     if (temperature2 = backupTempSensor.getTempCByIndex(0) == 85)temperature2 = 0; //85 is a false reading, so it's discarded
-
 
     temperature = fmap(temperature, temp0adjust[0], temp0adjust[2], temp0adjust[1], temp0adjust[3]);
 
@@ -218,8 +214,6 @@ void heatingLoop() {
 
     if (oledFunctional) {
 #define txtOffset 50
-
-
       oledFill(&ssoled, 0, 1);
 
       dtostrf(temperature, 4, 1, charVal);
@@ -257,11 +251,10 @@ void heatingLoop() {
 
       }
 
-
-
     }
     if (temperature > maxTemp || temperature2 > maxTemp) {
-      digitalWrite(heaterRelayPin, LOW);
+      digitalWrite(heaterRelayPin0, LOW);
+      digitalWrite(heaterRelayPin1, LOW);
       Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
@@ -273,7 +266,26 @@ void heatingLoop() {
 
     if (!heatingOn) {
       if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
-        digitalWrite(heaterRelayPin, HIGH);
+        if (desiredTemperature[tempSetting % tempSettingAmount] - temperature > heatTemperRange) {
+          digitalWrite(heaterRelayPin0, HIGH);
+          digitalWrite(heaterRelayPin1, HIGH);
+          fullHeat = true;
+        }
+        else {
+          fullHeat = false;
+          //heatingElement = (millis()/10000)%2;//good if it was continuous
+          heatingElement = !heatingElement;
+          if (heatingElement) {
+            digitalWrite(heaterRelayPin0, HIGH);
+            digitalWrite(heaterRelayPin1, LOW);
+          }
+          else {
+            digitalWrite(heaterRelayPin0, LOW);
+            digitalWrite(heaterRelayPin1, HIGH);
+          }
+
+        }
+
         Serial.print(F("turning on heat, desiredTemperature:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = true;
@@ -281,7 +293,8 @@ void heatingLoop() {
     }
     else if (heatingOn) {
       if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
-        digitalWrite(heaterRelayPin, LOW);
+        digitalWrite(heaterRelayPin0, LOW);
+        digitalWrite(heaterRelayPin1, LOW);
         Serial.println(F("turning off heat, desired temp:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = false;
@@ -341,7 +354,20 @@ void buttonLoop() {
 
 void ledLoop() {
   ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
-  if (heatingOn)  leds[0] = CRGB::Red;
+  if (heatingOn) {
+    if (fullHeat) {
+      leds[0] = CRGB::Red;
+    }
+    else {
+      if (heatingElement) {
+        leds[0] = CRGB::Green;
+      }
+      else {
+        leds[0] = CRGB::Blue;
+      }
+    }
+  }
+
   else leds[0] = CRGB::Grey;
   FastLED.show();
   //Serial.println("ledLoop");
