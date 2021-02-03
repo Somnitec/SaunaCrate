@@ -61,7 +61,7 @@ Adafruit_AM2315 am2315;
 
 float desiredTemperature[] = {55., 60., 65., 70., 75., 80., 85., 90., 95., 100.};
 int tempSettingAmount = 10;
-int tempSetting = 2;
+int tempSetting = 5;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 
@@ -93,8 +93,8 @@ SSOLED ssoled;
 char charVal[10];
 bool oledFunctional = true;
 
-//float temp0adjust[] =   {13., 9., 65., 75.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
-float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+float temp0adjust[] =   {13., 9., 75., 90.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+//float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 
 
@@ -252,8 +252,8 @@ void heatingLoop() {
 #define lineEnd 123
       int heatingLevel = map (temperature, 20, desiredTemperature[tempSetting % tempSettingAmount], 0, 7);
       for ( int i = 7; i >= 7 - heatingLevel; i--) {
-        if (!firstTimeHot)    oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"|", FONT_NORMAL, 0, 1);
-        else     oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"+", FONT_NORMAL, 0, 1);
+        if (firstTimeHot)    oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"|", FONT_NORMAL, 0, 1);
+        else     oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"8", FONT_NORMAL, 0, 1);
 
       }
 
@@ -352,8 +352,8 @@ void timeProgram( )
 {
 
   unsigned long colorIndex = map(millis() - timer, 0, 15 * 60000, 0, 255);
-  dtostrf(colorIndex, 4, 1, charVal);
-  oledWriteString(&ssoled, 0,  105, 0, charVal, FONT_NORMAL, 0, 1);
+  //dtostrf(colorIndex, 4, 1, charVal);
+  //oledWriteString(&ssoled, 0,  105, 0, charVal, FONT_NORMAL, 0, 1);
   if (colorIndex > 255) {
     setLeds(  saunaPalette1_p[0]);
   }
