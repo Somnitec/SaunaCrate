@@ -73,8 +73,8 @@ void ledLoop();
 void buttonLoop();
 
 SchedTask HeatingTask (0, 1000, heatingLoop);              // define the turn on task (dispatch now, every 3 sec)
-//SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
-SchedTask LedTask (300, 500, ledLoop);//run every .1s
+SchedTask LedTask (300, 35, ledLoop);//16ms ~= 60fps 35~=30fps
+//SchedTask LedTask (300, 500, ledLoop);//run every .1s
 SchedTask ButtonTask (600, 100, buttonLoop);              // define the turn on task (dispatch now, every 3 sec)
 
 
@@ -90,7 +90,7 @@ SSOLED ssoled;
 char charVal[10];
 bool oledFunctional = true;
 
-float temp0adjust[] =   {13., 9., 75., 90.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
+float temp0adjust[] =   {13., 9., 75., 95.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 //float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 
@@ -266,26 +266,28 @@ void heatingLoop() {
 
     if (!heatingOn) {
       if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
-        if (desiredTemperature[tempSetting % tempSettingAmount] - temperature > heatTemperRange) {
-          digitalWrite(heaterRelayPin0, HIGH);
-          digitalWrite(heaterRelayPin1, HIGH);
-          fullHeat = true;
-        }
-        else {
+        //if (desiredTemperature[tempSetting % tempSettingAmount] - temperature > heatTemperRange) {
+        digitalWrite(heaterRelayPin0, HIGH);
+        digitalWrite(heaterRelayPin1, HIGH);
+        
+        fullHeat = true;
+        /*
+          }
+          else {
           fullHeat = false;
           //heatingElement = (millis()/10000)%2;//good if it was continuous
           heatingElement = !heatingElement;
           if (heatingElement) {
-            digitalWrite(heaterRelayPin0, HIGH);
-            digitalWrite(heaterRelayPin1, LOW);
+          digitalWrite(heaterRelayPin0, HIGH);
+          digitalWrite(heaterRelayPin1, LOW);
           }
           else {
-            digitalWrite(heaterRelayPin0, LOW);
-            digitalWrite(heaterRelayPin1, HIGH);
+          digitalWrite(heaterRelayPin0, LOW);
+          digitalWrite(heaterRelayPin1, HIGH);
           }
 
-        }
-
+          }
+        */
         Serial.print(F("turning on heat, desiredTemperature:"));
         Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = true;
