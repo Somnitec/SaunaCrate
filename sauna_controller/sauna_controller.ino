@@ -56,7 +56,7 @@ Adafruit_AM2315 am2315;
 
 float desiredTemperature[] = {55., 60., 65., 70., 75., 80., 85., 90., 95., 100.};
 int tempSettingAmount = 10;
-int tempSetting = 6;
+int tempSetting = 4;
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 #define heatTemperRange 2
