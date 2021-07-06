@@ -61,6 +61,7 @@ Adafruit_AM2315 am2315;
 float desiredTemperature[] = {55., 60., 65., 70., 75., 80., 85., 90., 95., 100.};
 int tempSettingAmount = 10;
 int tempSetting = 4;
+#define tempSettingAddress 1
 #define hysteresis .5//the amount of difference between turning on and off (system could be made more advance with PID
 #define maxTemp 110
 #define heatTemperRange 2
@@ -98,13 +99,22 @@ float temp0adjust[] =   {13., 9., 75., 95.}; //sensor0 lowMeasured,lowReal,highM
 //float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 
 
+//this needs to be here so that the functions get loaded properly
+typedef void (*SimplePatternList[])();
 
+byte currentLedPattern = 0;
+#define currentLedPatternAddress 2
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 
 void setup() {
 
   timesTurnedOn = EEPROM.read(timesTurnedOnAddress) + 1;
   EEPROM.write(timesTurnedOnAddress, timesTurnedOn);
+  //delay(10);
+  tempSetting = EEPROM.read(tempSettingAddress);
+  //delay(10);
+  //currentLedPattern = EEPROM.read(currentLedPatternAddress);//somehow this crashes things
 
   if (serialOut) {
     Serial.begin(115200);
@@ -171,13 +181,9 @@ void setup() {
 
 }
 
-//this needs to be here so that the functions get loaded properly
-typedef void (*SimplePatternList[])();
 #define ledPatternAmount 4
 SimplePatternList ledPatterns = {fire, timeProgram, red, green};
 char *ledPatternsString[] = {(char*)"fire", (char*)"timeProgram", (char*)"red", (char*)"green"};
-int currentLedPattern = 0;
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 void loop() {
   random16_add_entropy( random());
@@ -230,7 +236,7 @@ void heatingLoop() {
       dtostrf(temperature, 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 1, (char *)"temp:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
-      dtostrf(desiredTemperature[tempSetting % tempSettingAmount], 4, 1, charVal);
+      dtostrf(desiredTemperature[tempSetting], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
       dtostrf(heatingOn, 1, 0, charVal);
@@ -256,7 +262,7 @@ void heatingLoop() {
 
       //make a little bar showing the heating level graphically
 #define lineEnd 123
-      int heatingLevel = map (temperature, 20, desiredTemperature[tempSetting % tempSettingAmount], 0, 7);
+      int heatingLevel = map (temperature, 20, desiredTemperature[tempSetting], 0, 7);
       for ( int i = 7; i >= 7 - heatingLevel; i--) {
         if (firstTimeHot)    oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"|", FONT_NORMAL, 0, 1);
         else     oledWriteString(&ssoled, 0,  lineEnd, i , (char *)"8", FONT_NORMAL, 0, 1);
@@ -277,7 +283,7 @@ void heatingLoop() {
     }
 
     if (!heatingOn) {
-      if (temperature < desiredTemperature[tempSetting % tempSettingAmount] - hysteresis) {
+      if (temperature < desiredTemperature[tempSetting] - hysteresis) {
         //if (desiredTemperature[tempSetting % tempSettingAmount] - temperature > heatTemperRange) {
         digitalWrite(heaterRelayPin0, HIGH);
         digitalWrite(heaterRelayPin1, HIGH);
@@ -301,16 +307,16 @@ void heatingLoop() {
           }
         */
         if (serialOut)Serial.print(F("turning on heat, desiredTemperature:"));
-        if (serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
+        if (serialOut)Serial.println(desiredTemperature[tempSetting ]);
         heatingOn = true;
       }
     }
     else if (heatingOn) {
-      if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
+      if (temperature > desiredTemperature[tempSetting ]) {
         digitalWrite(heaterRelayPin0, LOW);
         digitalWrite(heaterRelayPin1, LOW);
         if (serialOut)Serial.println(F("turning off heat, desired temp:"));
-        if (serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
+        if (serialOut)Serial.println(desiredTemperature[tempSetting ]);
         heatingOn = false;
 
         if (!firstTimeHot) {
@@ -344,6 +350,7 @@ void buttonLoop() {
       oledWriteString(&ssoled, 0,  0, 3, (char *)"led pattern", FONT_NORMAL, 0, 1);
       //dtostrf(ledPatternsString[currentLedPattern % ledPatternAmount], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  50, 4, ledPatternsString[currentLedPattern], FONT_NORMAL, 0, 1);
+      EEPROM.write(currentLedPatternAddress, currentLedPattern);
       delay(1000);
     }
     else {
@@ -354,6 +361,7 @@ void buttonLoop() {
       oledWriteString(&ssoled, 0,  0, 3, (char *)"temp setting", FONT_NORMAL, 0, 1);
       dtostrf(desiredTemperature[tempSetting ], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
+      EEPROM.write(tempSettingAddress, tempSetting);
       delay(1000);
     }
     timer = millis();//reset the timer
