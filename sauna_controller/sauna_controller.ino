@@ -4,7 +4,7 @@
 
 //todo
 //find out potential crashes
-//store amount of times turned on
+//X store amount of times turned on
 //make temperature switch button respond faster
 //names for light patterns
 //more light programs
@@ -173,7 +173,9 @@ void setup() {
 
 //this needs to be here so that the functions get loaded properly
 typedef void (*SimplePatternList[])();
+#define ledPatternAmount 4
 SimplePatternList ledPatterns = {fire, timeProgram, red, green};
+char *ledPatternsString[] = {(char*)"fire", (char*)"timeProgram", (char*)"red", (char*)"green"};
 int currentLedPattern = 0;
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -244,8 +246,12 @@ void heatingLoop() {
       oledWriteString(&ssoled, 0,  0, 6, (char *)"left:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 6, (char *)timeToString(maxTime - (millis() - timer) ).c_str(), FONT_NORMAL, 0, 1);
 
-      oledWriteString(&ssoled, 0,  0, 7, (char *)"tHot:", FONT_NORMAL, 0, 1);
-      oledWriteString(&ssoled, 0,  txtOffset, 7, (char *)timeToString(timeToGetHot ).c_str(), FONT_NORMAL, 0, 1);
+      //oledWriteString(&ssoled, 0,  0, 7, (char *)"tHot:", FONT_NORMAL, 0, 1);
+      //oledWriteString(&ssoled, 0,  txtOffset, 7, (char *)timeToString(timeToGetHot ).c_str(), FONT_NORMAL, 0, 1);
+      //dtostrf(currentLedPattern % ARRAY_SIZE(ledPatterns), 1, 0, charVal);
+      oledWriteString(&ssoled, 0,  0, 7, (char *)"leds:", FONT_NORMAL, 0, 1);
+      oledWriteString(&ssoled, 0,  txtOffset, 7, (char *)ledPatternsString[currentLedPattern % ledPatternAmount], FONT_NORMAL, 0, 1);
+
 
 
       //make a little bar showing the heating level graphically
@@ -261,7 +267,7 @@ void heatingLoop() {
     if (temperature > maxTemp || temperature2 > maxTemp) {
       digitalWrite(heaterRelayPin0, LOW);
       digitalWrite(heaterRelayPin1, LOW);
-      if(serialOut)Serial.println(F("overheated, stopping now"));
+      if (serialOut)Serial.println(F("overheated, stopping now"));
       heatingOn = false;
       setLeds(CRGB::Black);
       FastLED.show();
@@ -294,8 +300,8 @@ void heatingLoop() {
 
           }
         */
-        if(serialOut)Serial.print(F("turning on heat, desiredTemperature:"));
-        if(serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
+        if (serialOut)Serial.print(F("turning on heat, desiredTemperature:"));
+        if (serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = true;
       }
     }
@@ -303,8 +309,8 @@ void heatingLoop() {
       if (temperature > desiredTemperature[tempSetting % tempSettingAmount]) {
         digitalWrite(heaterRelayPin0, LOW);
         digitalWrite(heaterRelayPin1, LOW);
-        if(serialOut)Serial.println(F("turning off heat, desired temp:"));
-        if(serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
+        if (serialOut)Serial.println(F("turning off heat, desired temp:"));
+        if (serialOut)Serial.println(desiredTemperature[tempSetting % tempSettingAmount]);
         heatingOn = false;
 
         if (!firstTimeHot) {
@@ -325,26 +331,28 @@ unsigned long buttonPressTimeStamp = 0;
 void buttonLoop() {
   pushButton.update();
   if (pushButton.fell()) {
-    if(serialOut)Serial.print(F("button Pressed"));
+    if (serialOut)Serial.print(F("button Pressed"));
     buttonPressTimeStamp = millis();
   }
   if (pushButton.rose()) {
     if ((millis() - buttonPressTimeStamp) > buttonPressTime) {
 
       currentLedPattern++;
-      if(serialOut)Serial.println(F("button long->change LED"));
+      currentLedPattern = currentLedPattern % ledPatternAmount;
+      if (serialOut)Serial.println(F("button long->change LED"));
       oledFill(&ssoled, 0, 1);
       oledWriteString(&ssoled, 0,  0, 3, (char *)"led pattern", FONT_NORMAL, 0, 1);
-      dtostrf(currentLedPattern % ARRAY_SIZE(ledPatterns), 4, 1, charVal);
-      oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
+      //dtostrf(ledPatternsString[currentLedPattern % ledPatternAmount], 4, 1, charVal);
+      oledWriteString(&ssoled, 0,  50, 4, ledPatternsString[currentLedPattern], FONT_NORMAL, 0, 1);
       delay(1000);
     }
     else {
       tempSetting++;
-      if(serialOut)Serial.println(F("button short->change temp"));
+      tempSetting %= tempSettingAmount;
+      if (serialOut)Serial.println(F("button short->change temp"));
       oledFill(&ssoled, 0, 1);
       oledWriteString(&ssoled, 0,  0, 3, (char *)"temp setting", FONT_NORMAL, 0, 1);
-      dtostrf(desiredTemperature[tempSetting % tempSettingAmount], 4, 1, charVal);
+      dtostrf(desiredTemperature[tempSetting ], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  50, 4, charVal, FONT_NORMAL, 0, 1);
       delay(1000);
     }
@@ -353,14 +361,14 @@ void buttonLoop() {
 
   doorSwitch.update();
   if (doorSwitch.rose()) {
-    if(serialOut)Serial.println(F("door opened, reset time"));
+    if (serialOut)Serial.println(F("door opened, reset time"));
     timer = millis();//reset the timer
   }
   //Serial.println("buttonLoop");
 }
 
 void ledLoop() {
-  ledPatterns[currentLedPattern % ARRAY_SIZE(ledPatterns) ]();
+  ledPatterns[currentLedPattern  ]();
   if (heatingOn) {
     if (fullHeat) {
       leds[0] = CRGB::Red;
@@ -470,7 +478,7 @@ const TProgmemPalette16 saunaPalette1_p PROGMEM =
 
 void timerStartup() {
   unsigned long waitTime = 0;
-  if(serialOut)Serial.println(F("timerStartup"));
+  if (serialOut)Serial.println(F("timerStartup"));
   oledFill(&ssoled, 0, 1);
   oledWriteString(&ssoled, 0,  50, 3, (char *)"Time delay", FONT_NORMAL, 0, 1);
   oledWriteString(&ssoled, 0,  0, 4, (char *)"short press +30m", FONT_NORMAL, 0, 1);
@@ -483,14 +491,14 @@ void timerStartup() {
   while (true) {
     pushButton.update();
     if (pushButton.fell()) {
-      if(serialOut)Serial.print(F("button Pressed"));
+      if (serialOut)Serial.print(F("button Pressed"));
       buttonPressTimeStamp = millis();
     }
     if (buttonPressTimeStamp) {
       if (pushButton.rose()) {
         if ((millis() - buttonPressTimeStamp) > buttonPressTime) {
 
-          if(serialOut)Serial.println(F("button long->timer set"));
+          if (serialOut)Serial.println(F("button long->timer set"));
           unsigned long waitTimer = millis();
           while (millis() < waitTimer + waitTime) {//waiting
             oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTimer - millis() + waitTime ).c_str(), FONT_NORMAL, 0, 1);
@@ -499,7 +507,7 @@ void timerStartup() {
           return;
         }
         else {
-          if(serialOut)Serial.println(F("button short->add 30m"));
+          if (serialOut)Serial.println(F("button short->add 30m"));
           waitTime += 60000 * 30;
 
           oledWriteString(&ssoled, 0,  50, 6, (char *)timeToString(waitTime ).c_str(), FONT_NORMAL, 0, 1);
