@@ -3,8 +3,11 @@
 
 
 //todo
-//double check safety loops, in case something crashes, how to ensure shutdown?
-//clean up code
+//find out potential crashes
+//store amount of times turned on
+//make temperature switch button respond faster
+//names for light patterns
+//more light programs
 
 #include <Arduino.h>
 #include <Bounce2.h>
@@ -13,13 +16,8 @@
 #include <ss_oled.h>
 #include <Wire.h>
 #include <Adafruit_AM2315.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
-
 #define ONE_WIRE_BUS A2
 
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature backupTempSensor(&oneWire);
 
 #define heaterRelayPin0 2
 #define heaterRelayPin1 4
@@ -92,7 +90,6 @@ bool oledFunctional = true;
 
 float temp0adjust[] =   {13., 9., 75., 95.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 //float temp0adjust[] =   {13., 13., 65., 65.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
-float temp2adjust[] =   {13., 9., 65., 85.}; //sensor0 lowMeasured,lowReal,highMeasured,highReal
 
 
 
@@ -143,9 +140,6 @@ void setup() {
   }
   Serial.println(F("am2315 started"));
 
-  backupTempSensor.begin();
-  backupTempSensor.setResolution(9);
-  Serial.println(F("backup tempsensor started"));
 
   FastLED.addLeds<CHIPSET, LED_PIN0, COLOR_ORDER>(leds, 0, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
   FastLED.addLeds<CHIPSET, LED_PIN1, COLOR_ORDER>(leds, NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP).setCorrection( TypicalLEDStrip );
@@ -191,16 +185,12 @@ void heatingLoop() {
       //Serial.println("Failed to read data from AM2315");
       return;
     }
-    if (temperature2 = backupTempSensor.getTempCByIndex(0) == 85)temperature2 = 0; //85 is a false reading, so it's discarded
-
+  
     temperature = fmap(temperature, temp0adjust[0], temp0adjust[2], temp0adjust[1], temp0adjust[3]);
 
-    temperature2 = fmap(temperature2, temp2adjust[0], temp2adjust[2], temp2adjust[1], temp2adjust[3]);
-
+  
     Serial.print(F("\tTemperature:"));
     Serial.print(temperature);
-    Serial.print(F("\tTemperature2:"));
-    Serial.print(temperature2);
     Serial.print(F("\tDesiredTemperature:"));
     Serial.print(desiredTemperature[tempSetting % tempSettingAmount]);
     Serial.print(F("\tHeatingNow:"));
@@ -221,9 +211,9 @@ void heatingLoop() {
       dtostrf(temperature, 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 0, (char *)"temp:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 0, (char *)charVal, FONT_NORMAL, 0, 1);
-      dtostrf(temperature2, 4, 1, charVal);
-      oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
-      oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
+      //dtostrf(temperature2, 4, 1, charVal);
+      //oledWriteString(&ssoled, 0,  0, 1, (char *)"temp2:", FONT_NORMAL, 0, 1);
+      //oledWriteString(&ssoled, 0,  txtOffset, 1, (char *)charVal, FONT_NORMAL, 0, 1);
       dtostrf(desiredTemperature[tempSetting % tempSettingAmount], 4, 1, charVal);
       oledWriteString(&ssoled, 0,  0, 2, (char *)"target:", FONT_NORMAL, 0, 1);
       oledWriteString(&ssoled, 0,  txtOffset, 2, (char *)charVal, FONT_NORMAL, 0, 1);
@@ -313,7 +303,6 @@ void heatingLoop() {
     }
   }
   //Serial.println("heatingLoop");
-  backupTempSensor.requestTemperatures();
 }
 
 
